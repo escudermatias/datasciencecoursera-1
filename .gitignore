@@ -6,3 +6,19 @@
 
 # R data files from past sessions
 .Rdata
+.Rproj.user
+*.Rproj
+
+# certificates and other coursera files
+VerifiedCertificates
+CourseDependencies.pdf
+
+# course material
+01_TheDataScientistsToolbox
+02_RProgramming
+03_GettingAndCleaningData_old
+
+# quiz and data files / directories
+*quiz*
+data
+UCI_HAR_Dataset
