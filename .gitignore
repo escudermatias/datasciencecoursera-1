@@ -21,4 +21,4 @@ CourseDependencies.pdf
 # quiz and data files / directories
 quiz*
 data
-UCI_HAR_Dataset
+UCI\ HAR\ Dataset
