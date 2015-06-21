@@ -19,6 +19,6 @@ CourseDependencies.pdf
 03_GettingAndCleaningData_old
 
 # quiz and data files / directories
-*quiz*
+quiz*
 data
 UCI_HAR_Dataset
