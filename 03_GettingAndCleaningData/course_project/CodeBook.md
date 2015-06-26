@@ -97,7 +97,7 @@ But the major steps performed are the following (labeled A to H here):
 
 ## The Resulting Tidy Dataset
 
-The resulting dataset has 40 observations of 68 variables. The variables are:
+The resulting dataset has 180 observations of 68 variables. The variables are:
 
 * subjectid: Denotes the subject ID (integer values 1-30)
 * activity: Denotes the activity performed (i.e. one of the following: laying, sitting, standing, walking, downstairs (i.e. walking downstairs), or upstairs (i.e. walking upstairs))

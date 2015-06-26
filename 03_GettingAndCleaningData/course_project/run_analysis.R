@@ -49,6 +49,7 @@ ntest <- dim(xtest)[1]
 # the subject_test.txt file
 subjecttest <- fread("./data/UCI\ HAR\ Dataset/test/subject_test.txt")
 setnames(subjecttest, 1, "subjectid")
+# subjecttest <- subjecttest %>% mutate_each(funs(as.factor), subjectid)
 
 # we also add a column signifying membership to the test group
 testgroup <- tbl_dt(rep("test", ntest))
@@ -58,13 +59,17 @@ setnames(testgroup, 1, "group")
 # activity class numbers are in y_test.txt
 testactivity <- fread("./data/UCI\ HAR\ Dataset/test/y_test.txt")
 setnames(testactivity, 1, "class")
+testactivity <- testactivity %>% mutate_each(funs(as.factor), class)
+
 # join the testactivity and activities data.tables together
-testactivity <- left_join(testactivity, activities)
+# testactivity2 <- left_join(testactivity, activities)
+# testactivity2 <- merge(testactivity, activities, by = c("class"), all = TRUE)
 # check whether all rows have been joined properly
-sum(is.na(testactivity))
+# sum(is.na(testactivity))
 
 # bring it all together by column binding
 xtest <- bind_cols(subjecttest, testgroup, testactivity, xtest)
+setattr(xtest$class, "levels", activities$name)
 
 
 ## read in training dataset
@@ -80,25 +85,27 @@ ntrain <- dim(xtrain)[1]
 
 subjecttrain <- fread("./data/UCI\ HAR\ Dataset/train/subject_train.txt")
 setnames(subjecttrain, 1, "subjectid")
+# subjecttrain <- subjecttrain %>% mutate_each(funs(as.factor), subjectid)
 
 traingroup <- tbl_dt(rep("training", ntrain))
 setnames(traingroup, 1, "group")
 
 trainactivity <- fread("./data/UCI\ HAR\ Dataset/train/y_train.txt")
 setnames(trainactivity, 1, "class")
-trainactivity <- left_join(trainactivity, activities)
-sum(is.na(trainactivity))
+trainactivity <- trainactivity %>% mutate_each(funs(as.factor), class)
 
 xtrain <- bind_cols(subjecttrain, traingroup, trainactivity, xtrain)
+setattr(xtrain$class, "levels", activities$name)
 
 ## Merging test and training datasets
-xmerged <- bind_rows(xtrain, xtest)
+# xmerged <- bind_rows(xtrain, xtest)  # column getting lost???
+xmerged <- tbl_dt(rbind(xtrain, xtest))
 
 # rename the activity column
-setnames(xmerged, "name", "activity")
+setnames(xmerged, "class", "activity")
 
-# turn the first 4 columns into factor variables
-xmerged <- xmerged %>% mutate_each(funs(as.factor), subjectid, group, class, activity)
+# turn the first 2 columns into factor variables
+xmerged <- xmerged %>% mutate_each(funs(as.factor), subjectid, group)
 
 
 ################################################################################

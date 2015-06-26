@@ -22,7 +22,7 @@ This file is also included in this repository.
 That means you can also read the tidy dataset back in without running the analysis:
 `xsummarised <- read.table("tidy_dataset.txt", header = TRUE, sep = " ")`
 
-The tidy dataset contains 40 observations of 68 variables:
+The tidy dataset contains 180 observations of 68 variables:
 
 * The first column denotes the subject ID (integer values 1-30)
 * The second column denotes the activity performed. I.e. one of the following:
