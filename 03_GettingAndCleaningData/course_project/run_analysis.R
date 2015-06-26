@@ -146,7 +146,8 @@ setnames(xextracted, 1:69, newnames)
 # we use dplyr's grouping and summarising functionality
 xsummarised <- xextracted %>% 
     group_by(subjectid, activity) %>% 
-    summarise_each(funs(mean), 4:69)
+    summarise_each(funs(mean), 4:69) %>% 
+    arrange(subjectid, activity)
 
 # a look at the first columns to check if it looks good
 # xsummarised %>% 
