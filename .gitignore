@@ -12,11 +12,15 @@
 # certificates and other coursera files
 VerifiedCertificates
 CourseDependencies.pdf
+eBooks
 
 # course material
 01_TheDataScientistsToolbox
 02_RProgramming
-03_GettingAndCleaningData_old
+03_GettingAndCleaningData
+04_ExploratoryDataAnalysis
+05_ReproducibleResearch
+
 
 # quiz and data files / directories
 quiz*
