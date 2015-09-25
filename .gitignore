@@ -9,20 +9,20 @@
 .Rproj.user
 *.Rproj
 
-# certificates and other coursera files
+# certificates and ebooks
 VerifiedCertificates
 CourseDependencies.pdf
 eBooks
 
+# in general, we don't want html files
+# use !specific.html to negate ignoring a specific file
+*.html
 
 # quiz and data files / directories
-README.html
-CodeBook.html
 UCI\ HAR\ Dataset
 02_RProgramming/assignment_1/specdata
 05_ReproducibleResearch/PeerAssessment2/StormData.csv.bz2
 05_ReproducibleResearch/PeerAssessment2/Severe_Weather_Events_*
-05_ReproducibleResearch/PeerAssessment2/Severe_Weather_Events.html
 06_StatisticalInference/course_project_cache
 06_StatisticalInference/course_project_files
 06_StatisticalInference/*.pdf
