@@ -21,6 +21,8 @@ eBooks
 # quiz and data files / directories
 UCI\ HAR\ Dataset
 02_RProgramming/assignment_1/specdata
+03_GettingAndCleaningData/data
+03_GettingAndCleaningData/course_project/data
 05_ReproducibleResearch/PeerAssessment2/StormData.csv.bz2
 05_ReproducibleResearch/PeerAssessment2/Severe_Weather_Events_*
 06_StatisticalInference/course_project_cache
