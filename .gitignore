@@ -16,8 +16,6 @@ eBooks
 
 
 # quiz and data files / directories
-quiz*
-data
 README.html
 CodeBook.html
 UCI\ HAR\ Dataset
