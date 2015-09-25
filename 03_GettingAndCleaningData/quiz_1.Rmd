@@ -1,0 +1,125 @@
+---
+title: "Quiz 1"
+author: "Matt Flor"
+date: "June 5, 2015"
+output: html_document
+---
+
+First, we create a data directory.
+
+```{r}
+if(!file.exists("data")) dir.create("data")
+```
+
+
+# Question 1
+
+## Download data and codebook
+
+```{r}
+if(!file.exists("./data/housing_idaho.csv")) {
+    fileURL <- "https://d396qusza40orc.cloudfront.net/getdata%2Fdata%2Fss06hid.csv"
+    download.file(fileURL, "./data/housing_idaho.csv", method = "curl")
+    dateDownloaded_housingData <- date()
+}
+
+if(!file.exists("./data/housing_idaho_codebook.pdf")) {
+    fileURL <- "https://d396qusza40orc.cloudfront.net/getdata%2Fdata%2FPUMSDataDict06.pdf"
+    download.file(fileURL, "./data/housing_idaho_codebook.pdf", method = "curl")
+    dateDownloaded_housingCodebook <- date()
+}
+```
+
+Trying to open the data file in LibreOffice reveals that we can read in the data thus: 
+
+```{r}
+library(data.table)
+housing <- fread("./data/housing_idaho.csv", sep = ",", header = TRUE)
+head(housing)
+str(housing)
+```
+
+## Answer
+
+The codebook states that the property value is stored as a categorical variable in column VAL.
+Worth larger than $1,000,000 is denoted by the value 24.
+
+```{r}
+housing[, .N, by = VAL]
+answer1 <- housing[VAL == 24, .N]
+```
+
+There are `r answer1` properties worth more than $1,000,000.
+
+
+# Question 2
+
+The FES variable records 'Family type and employment status' so the tidy data principle of one variabe per column is violated.
+
+
+# Question 3
+
+## Download and read in data
+
+```{r}
+if(!file.exists("./data/natural_gas.xlsx")) {
+    fileURL <- "https://d396qusza40orc.cloudfront.net/getdata%2Fdata%2FDATA.gov_NGAP.xlsx"
+    download.file(fileURL, "./data/natural_gas.xlsx", method = "curl")
+    dateDownloaded_gasData <- date()
+}
+library(xlsx)
+dat <- read.xlsx("./data/natural_gas.xlsx", sheetIndex = 1, 
+                 rowIndex = c(18:23), colIndex = c(7:15))
+```
+
+## Answer
+
+The value of `sum(dat$Zip * dat$Ext, na.rm = TRUE)` is `r sum(dat$Zip * dat$Ext, na.rm = TRUE)`.
+
+
+ # Question 4
+
+```{r}
+library(XML)
+library(RCurl)
+fileURL <- "https://d396qusza40orc.cloudfront.net/getdata%2Fdata%2Frestaurants.xml"
+xData <- getURL(fileURL)
+doc <- xmlTreeParse(xData, useInternal = TRUE)
+rootNode <- xmlRoot(doc)
+xmlName(rootNode)
+zipcodes <- xpathSApply(doc, "//zipcode", xmlValue)
+```
+
+There are `r sum(zipcodes == 21231)` restaurants with zipcode 21231.
+
+
+# Question 5
+
+## Download and read in data
+
+```{r}
+if(!file.exists("./data/housing_idaho_pid.csv")) {
+    fileURL <- "https://d396qusza40orc.cloudfront.net/getdata%2Fdata%2Fss06pid.csv"
+    download.file(fileURL, "./data/housing_idaho_pid.csv", method = "curl")
+    dateDownloaded_housingData <- date()
+}
+library(data.table)
+DT <- fread("./data/housing_idaho_pid.csv", sep = ",", header = TRUE)
+```
+
+```{r}
+system.time(for(i in 1:100) res1 <- tapply(DT$pwgtp15,DT$SEX,mean))
+res1
+system.time(for(i in 1:100) {res2_1 <- rowMeans(DT)[DT$SEX==1]; res2_2 <- rowMeans(DT)[DT$SEX==2]})
+c(res2_1, res2_2)
+system.time(for(i in 1:100) res3 <- DT[,mean(pwgtp15),by=SEX])
+res3
+system.time(for(i in 1:100) res4 <- mean(DT$pwgtp15,by=DT$SEX))
+res4
+system.time(for(i in 1:100) res5 <- sapply(split(DT$pwgtp15,DT$SEX),mean))
+res5
+system.time(for(i in 1:100) {res6_1 <- mean(DT[DT$SEX==1,]$pwgtp15); res6_2 <- mean(DT[DT$SEX==2,]$pwgtp15)})
+c(res6_1, res6_2)
+```
+
+Method #3 is fastest.

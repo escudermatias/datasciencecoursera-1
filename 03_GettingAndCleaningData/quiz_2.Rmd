@@ -1,0 +1,59 @@
+---
+title: "Quiz 2"
+author: "Matt Flor"
+date: "June 7, 2015"
+output: html_document
+---
+
+# Question 1
+
+We'll use Hadley Wickham's script at https://github.com/hadley/httr/blob/master/demo/oauth2-github.r for authentication, as suggested by question 1.
+
+```{r}
+library(httr)
+
+# 1. Find OAuth settings for github:
+#    http://developer.github.com/v3/oauth/
+oauth_endpoints("github")
+
+# 2. To make your own application, register at at
+#    https://github.com/settings/applications. Use any URL for the homepage URL
+#    (http://github.com is fine) and  http://localhost:1410 as the callback url
+#
+#    Replace your key and secret below.
+myapp <- oauth_app("github",
+  key = "c6791c4275bc0a4a38f9",
+  secret = "8d33fdcc94b2101bf97786af462e4fadea6a052a")
+
+# 3. Get OAuth credentials
+github_token <- oauth2.0_token(oauth_endpoints("github"), myapp, cache = NA)
+
+# 4. Use API
+gtoken <- config(token = github_token)
+req <- GET("https://api.github.com/rate_limit", gtoken)
+stop_for_status(req)
+content(req)
+```
+
+Now, we can access the JT Leek github repos:
+
+```{r}
+jtleek_url <- "https://api.github.com/users/jtleek/repos"
+req <- GET(jtleek_url, config = gtoken)
+stop_for_status(req)
+content(req)
+str(req)
+req$headers
+```
+
+Or, we can use the `jsonlite` package:
+
+```{r}
+library(jsonlite)
+jsonData <- fromJSON(jtleek_url)
+```
+
+The repository was created on `r jsonData$created_at[1]`.
+
+
+
