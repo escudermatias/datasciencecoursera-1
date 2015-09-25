@@ -1,0 +1,201 @@
+---
+title: "Coursera Statistical Inference - Course Project I"
+author: "Matt Flor"
+date: "September 19, 2015"
+output:
+  pdf_document:
+    fig_caption: yes
+    fig_height: 3
+    fig_width: 5
+    number_sections: yes
+subtitle: 'Exponential Distribution: A Simulation Exercise'
+---
+
+**Note that this document is fully reproducible, so that I am not giving a 3 pages + 3 pages supplementary report but rather a 6 page report with code and text together.**
+
+# Overview
+
+In this analysis, we simulate 1000 draws from an exponential distribution with a sample size of 40 each.
+We show that the distribution of sample means fits the theoretical expectations well.  
+
+
+# Introduction
+
+We investigate the exponential distribution by way of simulation and compare it with expectations derived via the Central Limit Theorem.
+The probability density function (pdf) of the exponential distribution is $f(x) = \lambda {e}^{- \lambda x}$.
+$\lambda$ is called the rate parameter, and for the purpose of this investigation, we set $\lambda = 0.2$ for all of the simulations.
+The mean, $\mu$, and standard deviation, $\sigma$, of the exponential distribution are both equal to the reciprocal of the rate parameter, $\mu = \sigma = 1/\lambda = 5$.
+Here, we investigate the distribution of averages of $n = 40$ exponentials for  $n_{\mathrm{sim}} = 1000$ simulations.
+
+More specifically, we simulate $X_{s,i}$ random numbers where $s \in \left[1, n_{\mathrm{sim}}\right]$ and $i \in \left[1, n\right]$ (see section [Simulations](#simulations)).
+Then, we calculate the sample means, $\overline{X}_s$, and check the following expectations:
+
+- $E\left[\overline{X}_s\right] = \mu$ (see section [Sample Mean versus Theoretical Mean](#sample-mean-versus-theoretical-mean))
+- $E\left[S_s^2\right] = \sigma^2$ (see section [Sample Variance versus Theoretical Variance](#sample-variance-versus-theoretical-variance))
+- $\overline{X}_s$ are distributed approximately normally (see section [Distribution](#distribution))
+
+
+# Simulations
+
+First, we load the `R` packages we require for our investigation, set the parameters as detailed in the [Introduction](#introduction), and calculate the theoretical values for the mean and standard deviation.
+To keep the simulations reproducible, we also specify a random seed.
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE)
+```
+
+```{r parameters}
+library(dplyr)
+library(ggplot2)
+library(pander)
+library(fitdistrplus)
+lambda <- 0.2
+n <- 40
+nSim <- 1000
+mu <- 1 / lambda
+sigma <- 1 / lambda
+set.seed(43)
+```
+
+Theoretical mean and standard deviation calculate to $\mu = \sigma =$ `r mu`, and the variance is $\sigma^2 =$ `r sigma^2`.
+
+We store the random numbers our simulations generate in a data frame with columns **sim** (containing the simulation identifier, $s \in \left[1, n_{\mathrm{sim}}\right]$) and **x** (containing the actual numbers).
+The resulting data frame has $n_{\mathrm{sim}} \cdot n =$ `r format(nSim * n, scientific = FALSE)` rows.
+
+```{r simulation, cache=TRUE}
+df <- data.frame()
+for (i in 1:nSim) {
+    df <- rbind(df, data.frame(sim = i, x = rexp(n, rate = lambda)))
+}
+```
+
+As an example, figure 1 shows the distribution of values generated in the 42nd simulation.
+
+```{r example, fig.cap="Distribution of values for one exemplary simulation. The red solid line marks the sample mean for this particular simulation whereas the black dashed line marks the mean of the theoretical exponential distribution."}
+df1 <- df %>% filter(sim == 42)
+mean1 <- mean(df1$x)
+ggplot(df1, aes(x = x)) +
+    geom_histogram(binwidth = 1, alpha = 0.5,
+                   col = "skyblue", fill = "skyblue") +
+    geom_vline(xintercept = mean1, linetype = "solid", col = "red") +
+    geom_vline(xintercept = mu, linetype = "dashed") +
+    xlab("X") + ylab("Count") +
+    ggtitle("Distribution of Values in One Exemplary Simulation") +
+    theme_bw()
+```
+
+Note that the exponential distribution of values can be recognised to some extent (at least, they are clearly not normally distributed!), and that the sample mean (for this simulation) is close to the theoretical mean of the underlying exponential distribution.
+
+
+# Sample Mean versus Theoretical Mean
+
+In this section, we check the expectation that $E\left[\overline{X}_s\right] = \mu$, in other words that the distribution of sample means is centered around the theoretical mean of $\mu =$ `r mu`.
+We calculate the mean of each simulation and then the average of these means (which is equivalent to calculating the mean of the whole sample of size $n \cdot n_{\mathrm{sim}}$).
+Table 1 shows that the average sample mean is in good agreement with the theoretical mean.
+
+```{r means}
+sample.means <- df %>% 
+    group_by(sim) %>% 
+    summarise(mean = mean(x))
+av.sample.mean <- mean(sample.means$mean)
+mean.comp <- c("Average Sample Mean, $E\\left[\\overline{X}_s\\right]$" = av.sample.mean, 
+               "Theoretical Mean, $\\mu$" = mu)
+set.caption('Comparison of average sample mean and theoretical mean.')
+pander(mean.comp)
+```
+
+In figure 2, the distribution of the `r nSim` simulation means, $\overline{X}_s$, is depicted as a histogram.
+
+```{r hist_means, fig.cap="The distribution of sample means for the simulations. The dashed line marks the theoretical mean value."}
+ggplot(sample.means, aes(x = mean)) +
+    geom_histogram(binwidth = 0.4, alpha = 0.5,
+                   col = "skyblue", fill = "skyblue") +
+    geom_vline(xintercept = mu, linetype = "dashed") +
+    xlab("Sample Mean") + ylab("Count") +
+    ggtitle("Distribution of Sample Means") +
+    theme_bw()
+```
+
+As expected, the distribution of sample means is centered around the theoretical mean.
+Also note that the distribution looks far more normal than the distribution for a single simulation as depicted in figure 1 (more on this in section [Distribution](#distribution)).
+
+
+# Sample Variance versus Theoretical Variance
+
+In this section, we check the expectation that $E\left[S_s^2\right] = \sigma^2$, in other words that the distribution of sample variances is centered around the theoretical variance of $\sigma^2 =$ `r sigma^2`.
+We calculate the variance of each simulation and then the average of these variances (which is equivalent to calculating the variance of the whole sample of size $n \cdot n_{\mathrm{sim}}$).
+Table 2 shows that the average sample variance is in good agreement with the theoretical variance.
+
+```{r variances}
+sample.variances <- df %>% 
+    group_by(sim) %>% 
+    summarise(var = var(x))
+av.sample.var <- mean(sample.variances$var)
+var.comp <- c("Average Sample Variance, $E\\left[S_s^2\\right]$" = av.sample.var, 
+              "Theoretical Variance, $\\sigma^2$" = sigma^2)
+set.caption('Comparison of average sample variance and theoretical variance.')
+pander(var.comp)
+```
+
+In figure 3, the distribution of the `r nSim` simulation variances, $S_s^2$, is depicted as a histogram.
+
+```{r hist_vars, fig.cap="The distribution of sample variances for the simulations. The dashed line marks the theoretical variance."}
+ggplot(sample.variances, aes(x = var)) +
+    geom_histogram(binwidth = 5, alpha = 0.5,
+                   col = "skyblue", fill = "skyblue") +
+    geom_vline(xintercept = sigma^2, linetype = "dashed") +
+    xlab("Sample Variance") + ylab("Count") +
+    ggtitle("Distribution of Sample Variances") +
+    theme_bw()
+```
+
+The distribution of sample variances is centered around the theoretical variance.
+
+
+# Distribution
+
+In this section, we investigate how well the distribution of sample means can be approximated by a normal distribution.
+We do this by calculating the mean and standard deviation of the sample means, $E\left[\overline{X}_s\right]$ and $\sqrt{Var\left(\overline{X}_s\right)}$, respectively, and visually inspect how well the relationship
+
+$$
+\overline{X}_s \sim N\left(E\left[\overline{X}_s\right], \sqrt{Var\left(\overline{X}_s\right)}\right)
+$$
+
+describes the distribution of sample means.
+
+```{r dist_pars}
+msm <- mean(sample.means$mean)
+vsm <- var(sample.means$mean)
+sdsm <- sqrt(vsm)
+```
+
+We expect that $Var\left(\overline{X}_s\right) = \frac{\sigma^2}{n}$, and table 3 again shows good agreement.
+
+```{r dist_comp}
+dist.comp <- c("Variance of Sample Means, $Var\\left(\\overline{X}_s\\right)$" = vsm, 
+               "$\\sigma^2 / n$" = sigma^2 / n)
+set.caption('Comparison of variance of sample means and theoretical expectation.')
+pander(dist.comp)
+```
+
+\newpage
+Now, we can overlay the histogram already shown in figure 2 with the normal probability density using the calculated parameters and visually inspect the goodness of fit.
+Furthermore, we can add a histogram of all data combined, i.e. treating the data as one large sample of size `r format(n * nSim, scientific = FALSE)`.
+
+```{r dist_hist, fig.width=7, fig.height=4, fig.cap="Distribution of sample means (blue bars), all data combined (pink bars), and the normal distribution fit (black curve). "}
+ggplot(sample.means, aes(x = mean)) +
+    geom_histogram(aes(y = ..density.., fill = "Sample means", col = "Sample means"), 
+                   binwidth = 0.4, alpha = 0.5) +
+    geom_histogram(data = df, aes(x = x, y = ..density.., col = "All", fill = "All"), 
+                   binwidth = 0.4, alpha = 0.5) +
+    scale_fill_manual("Data", values = c("pink", "skyblue")) +
+    scale_color_manual("Data", values = c("pink", "skyblue")) +
+    stat_function(fun = dnorm, args = list(mean = msm, sd = sdsm), n = 1001) + 
+    scale_x_continuous("X", limits = c(0, 15)) +
+    ylab("Density") +
+    ggtitle("Distribution of Sample Means and All Data Combined") +
+    theme_bw()
+```
+
+Figure 4 shows that the sample means are approximately normally distributed whereas all data combined are clearly not (they shouldn't be, of course, and one can recognize the exponential distribution quite well).
+

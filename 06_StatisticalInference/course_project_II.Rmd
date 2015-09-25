@@ -1,0 +1,58 @@
+---
+title: "Coursera Statistical Inference - Course Project II"
+author: "Matt Flor"
+date: "September 20, 2015"
+output: 
+  pdf_document:
+    fig_caption: yes
+    fig_height: 3
+    fig_width: 5
+    number_sections: yes
+subtitle: 'Tooth Growth: A Basic Exploratory Data Analysis'
+---
+
+**Note that this document is fully reproducible, so that I am not giving a 3 pages + 3 pages supplementary report but rather a 6 page report with code and text together.**
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE)
+```
+
+First, we load required `R` packages and the data.
+The `ToothGrowth` dataset describes the effect of vitamin C at three **dose** levels on tooth growth (variable **len**) in guinea pigs with each of two delivery methods (orange juice or pure Vitamin C (ascorbic acid)).
+We convert the dose variable to a factor, and rename the levels of the **suppl** variable (i.e. the delivery method) to make them easier to understand.
+
+```{r data}
+library(plyr)
+library(dplyr)
+library(ggplot2)
+library(pander)
+library(datasets)
+data("ToothGrowth")
+ToothGrowth$dose <- as.factor(ToothGrowth$dose)
+ToothGrowth$supp <- plyr::revalue(ToothGrowth$supp, 
+                                  c("VC" = "Vitamin C", "OJ" = "Orange juice"))
+set.caption("First rows of the dataset.")
+pander(head(ToothGrowth))
+```
+
+Now we can look at some simple summary statistics for the three variable, tooth length (len), delivery methods (supp), and Vitamin C dose (dose).
+
+```{r summaries}
+set.caption("Summary of tooth lengths.")
+pander(summary(ToothGrowth$len))
+set.caption("Group sizes for the two delivery methods.")
+pander(summary(ToothGrowth$supp))
+set.caption("Group sizes for the dose levels of Vitamin C (in mg).")
+pander(summary(ToothGrowth$dose))
+```
+
+```{r comparisons}
+comps <- ToothGrowth %>% 
+    group_by(supp, dose) %>% 
+    summarise(mean = mean(len), sd = sd(len))
+set.caption("Mean tooth length and standard deviation for each of the 
+            combination of delivery method and dose.")
+pander(comps)
+```
+
+
