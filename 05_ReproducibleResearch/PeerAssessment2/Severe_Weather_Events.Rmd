@@ -1,0 +1,379 @@
+---
+title: "Severe Weather Events: Harm to Population Health and Economic Consequences"
+author: "Matt Flor"
+date: "August 21, 2015"
+output:
+    html_document:
+        number_sections: yes
+        fig_caption: yes
+        toc: yes
+---
+
+# Synopsis  
+
+§1 Severe weather events may harm the population health and may damage property and crops.  
+§2 In this analysis, the National Oceanic and Atmospheric Administration's Storm Data is used to assess these health and economic consequences.   
+§3 In summary, tornados, excessive heat, flood, thunderstorm wind, and lightning pose the greatest risk to population health. Tornados injure the most people by far, whereas excessive heat claims most fatalities.  
+§4 In general, injury numbers are one order of magnitude larger than fatality numbers.  
+§5 There is considerable variability across years, in particular for tornado, flood, and excessive heat events.  
+§6 Economic consequences are mainly due to property damage, with flood, hurricane, storm surge, tornado, and hail events contributing the most over the years.  
+§7 A notable exception are drought events which damage crops the most.  
+§8 Variability across the years is mostly produced by flood and hurricane events.  
+
+
+# Data
+
+*Storm Data* is an official publication of the National Oceanic and Atmospheric Administration (NOAA).
+It documents
+
+> a. The occurrence of storms and other significant weather phenomena having sufficient intensity to cause loss of life, injuries, significant property damage, and/or disruption to commerce;  
+> b. Rare, unusual, weather phenomena that generate media attention, such as snow flurries in South Florida or the San Diego coastal area; and  
+> c. Other significant meteorological events, such as record maximum or minimum temperatures or precipitation that occur in connection with another event.  
+> *From the disclaimer in the [Storm Data Documentation][StormDataDoc] by the National Weather Service*
+
+The [Storm Data Documentation][StormDataDoc] contains detailed information on the data collection process.
+
+In addition, a [Storm Events FAQ][StormDataFAQ] by the National Climatic Data Center is available.
+
+[StormDataDoc]: https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf
+[StormDataFAQ]: https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf
+
+For this analysis, the storm database can be downloaded from the Coursera web site.
+
+```{r download.data, echo=TRUE}
+fileName <- "StormData.csv.bz2"
+if (!file.exists(fileName)) {
+    dataURL <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+    download.file(dataURL, destfile = fileName, method = "curl")
+}
+```
+
+
+# Data Processing
+
+In this section, the data processing steps are detailed (in word and actual code).
+
+Note that if you are not interested in reproducing this report you may skip this section and go straight to the [Results](#results) part.
+
+## Software and Notes on Reproducibility
+
+This report was generated on a PC running Ubuntu Linux 14.04 and the statistical software R (version 3.2.2) and is fully reproducible.
+
+In order to reproduce the report, the following R packages must be installed:
+
+```{r load.libraries, echo=TRUE, message=FALSE, warning=FALSE}
+library(plyr)
+library(dplyr)
+library(tidyr)
+library(lubridate)
+library(stringr)
+library(ggplot2)
+library(gridExtra)
+library(knitr)
+```
+
+Detailed information on the versions used can be taken from the following session info that was recorded while generating this report.
+
+```{r session.info, echo=TRUE}
+sessionInfo()
+```
+
+To generate the HTML report, simply run the command `knitr::knit("Severe_Weather_Events.Rmd")`.
+Make sure that your global R environment is empty if you generate the report for the first time.
+
+
+## Loading
+
+For the analysis, the database is loaded into a data frame `storms.df`.
+Variables that are not necessary for the analysis are dropped, and a new `year` variable is added.
+
+```{r read.data, echo=TRUE, cache=TRUE}
+if (!exists("storms.df")) storms.df <- tbl_df(read.csv("StormData.csv.bz2"))
+storms.df <- storms.df %>% 
+    mutate(year = year(mdy_hms(BGN_DATE))) %>% 
+    select(REFNUM, year, EVTYPE, FATALITIES, INJURIES,
+           PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP)
+```
+
+## Excluding Non-Relevant Records
+
+### Years
+
+For this analysis, in order to reliably summarize and compare data, only data from 1996 onwards is included.
+According to information on the National Climatic Data Center' website, records from years before 1996 either do not include the full set of event types used today ([1][NCDCevtype]) or have been extracted from unformatted text files and "contain many inconsistencies in the spelling of event types" ([2][NCDCsuppl]).
+
+[NCDCevtype]: http://www.ncdc.noaa.gov/stormevents/details.jsp?type=eventtype
+[NCDCsuppl]: http://www.ncdc.noaa.gov/stormevents/details.jsp?type=supplemental
+
+```{r filter.years, echo=TRUE}
+storms.df <- storms.df %>% 
+    filter(year > 1995)
+```
+
+
+### Events without Actual Harm to Population Health or Damage
+
+We exclude records of events that neither harmed population health nor damaged properties or crops.
+
+```{r filter.harm.dmg, echo=TRUE}
+storms.df <- storms.df %>% 
+    filter(FATALITIES != 0 | INJURIES != 0 | PROPDMG != 0 | CROPDMG != 0)
+```
+
+### Summary Records
+
+We exclude rows that provide summaries for certain days or event types to avoid double counting, and drop unused levels.
+
+```{r filter.summaries, echo=TRUE}
+storms.df <- storms.df %>% 
+    filter(!grepl("[sS]ummary", EVTYPE))
+storms.df <- droplevels(storms.df)
+```
+
+## Cleaning Up Event Types
+
+The dataset contains many records with event types that are not permitted according to section 2.1 of the [Storm Data Documentation][StormDataDoc].
+
+We do our best to match non-permitted event types to permitted ones.
+
+```{r permitted.evtypes, echo=TRUE}
+permitted.evtypes <- toupper(c(
+    "ASTRONOMICAL LOW TIDE", "AVALANCHE", 
+    "BLIZZARD", 
+    "COASTAL FLOOD", "COLD/WIND CHILL", 
+    "DEBRIS FLOW", "DENSE FOG", "DENSE SMOKE", "DROUGHT", "DUST DEVIL", "DUST STORM", 
+    "EXCESSIVE HEAT", "EXTREME COLD/WIND CHILL", 
+    "FLASH FLOOD", "FLOOD", "FROST/FREEZE", "FUNNEL CLOUD", "FREEZING FOG", 
+    "HAIL", "HEAT", "HEAVY RAIN", "HEAVY SNOW", "HIGH SURF", "HIGH WIND", "HURRICANE (TYPHOON)", 
+    "ICE STORM", 
+    "LAKE-EFFECT SNOW", "LAKESHORE FLOOD", "LIGHTNING", 
+    "MARINE HAIL", "MARINE HIGH WIND", "MARINE STRONG WIND", "MARINE THUNDERSTORM WIND", 
+    "RIP CURRENT", 
+    "SEICHE", "SLEET", "STORM SURGE/TIDE", "STRONG WIND", 
+    "THUNDERSTORM WIND", "TORNADO", "TROPICAL DEPRESSION", "TROPICAL STORM", "TSUNAMI", 
+    "VOLCANIC ASH", 
+    "WATERSPOUT", "WILDFIRE", "WINTER STORM", "WINTER WEATHER"
+))
+```
+
+A range of regular expression matching and replacing is performed.
+Any remaining non-permitted event type is assigned a new "UNMATCHED" type so that we can later judge potential problems.
+
+```{r matching.evtypes, echo=TRUE, results="asis"}
+mgsub <- function(pattern, replacement, x, ...) {
+    # hat tip for this function goes to Theodore Lytras, http://stackoverflow.com/a/15254254
+    if (length(pattern) != length(replacement)) {
+        stop("pattern and replacement do not have the same length.")
+    }
+    result <- x
+    for (i in 1:length(pattern)) {
+        result <- gsub(pattern[i], replacement[i], result, ...)
+    }
+    result
+}
+
+patterns <- c(" {0,}\\(?G?\\d\\d\\)?",
+              "TSTM",
+              "^HURRICANE(/TYPHOON| EDOUARD|$)",
+              "^TYPHOON$",
+              "^(URBAN/SML STREAM FLD|RIVER FLOOD(ING)?)$",
+              "/HAIL",
+              "^(LAND|MUD|ROCK )SLIDE$",
+              "^STORM SURGE$",
+              "^WILD/FOREST FIRE$",
+              "^RIP CURRENTS$",
+              "^EXTREME (COLD|WINDCHILL)$",
+              "^(LIGHT )?SNOW$|^WINTER WEATHER[ /]MIX$|WINTRY MIX|IC(E|Y) (ON )?ROADS|FREEZING DRIZZLE$",
+              "^(AGRICULTURAL |DAMAGING )?FREEZE$|(LIGHT )?FREEZING RAIN$|^GLAZE$",
+              "^(TIDAL|COASTAL) FLOODING(/EROSION)?$",
+              "^(COLD)$",
+              "^FOG$",
+              "^(WIND$|(STRONG|GUSTY) WINDS?|(DRY|WET) MICROBURST)$",
+              "^EXCESSIVE SNOW$",
+              "^(HEAVY SURF(/HIGH SURF)?|(HIGH|ROUGH) SEAS)$",
+              "^SMALL HAIL$",
+              "^MIXED PRECIP(ITATION)?$|^RAIN(/SNOW)?$")
+replacements <- c("",
+                  "THUNDERSTORM",
+                  "HURRICANE (TYPHOON)",
+                  "HURRICANE (TYPHOON)",
+                  "FLOOD",
+                  "",
+                  "DEBRIS FLOW",
+                  "STORM SURGE/TIDE",
+                  "WILDFIRE",
+                  "RIP CURRENT",
+                  "EXTREME COLD/WIND CHILL",
+                  "WINTER WEATHER",
+                  "FROST/FREEZE",
+                  "COASTAL FLOOD",
+                  "COLD/WIND CHILL",
+                  "DENSE FOG",
+                  "STRONG WIND",
+                  "HEAVY SNOW",
+                  "HIGH SURF",
+                  "HAIL",
+                  "HEAVY RAIN")
+
+storms.df <- storms.df %>% 
+    mutate_each(funs(toupper(as.character(.))), EVTYPE) %>% 
+    mutate_each(funs(str_trim), EVTYPE)
+storms.df$EVTYPE <- mgsub(patterns, replacements, storms.df$EVTYPE)
+storms.df$EVTYPE[!(storms.df$EVTYPE %in% permitted.evtypes)] <- "UNMATCHED"
+storms.df$EVTYPE <- as.factor(storms.df$EVTYPE)
+```
+
+## Damage Calculation
+
+Damage information is stored in four different variables:
+
+- `PROPDMG`: Property damage number
+- `PROPDMGEXP`: Letter signifying the magnitude of the property damage number
+- `CROPDMG`: Crop damage number
+- `CROPDMGEXP`: Letter signifying the magnitude of the crop damage number
+
+The letters are  "K" for thousands, "M" for millions, and "B" for billions US dollar.
+If the signifier variable is empty, the number is damage in US dollar.
+We can create new variables for property and crop damage (in US dollars) by multiplying the damage number with the appropriate power of ten:
+
+```{r damage, echo=TRUE}
+storms.df <- storms.df %>% 
+    mutate_each(funs(revalue(., c("K" = "1e3", "M" = "1e6", "B" = "1e9"))), PROPDMGEXP, CROPDMGEXP) %>% 
+    droplevels %>% 
+    mutate(propdmg.multiplier = as.numeric(as.character(PROPDMGEXP)),
+           cropdmg.multiplier = as.numeric(as.character(CROPDMGEXP))) %>% 
+    mutate_each(funs(ifelse(is.na(.), 1, .)), propdmg.multiplier, cropdmg.multiplier) %>% 
+    mutate(property.damage = PROPDMG * propdmg.multiplier,
+           crop.damage = CROPDMG * cropdmg.multiplier) %>% 
+    select(REFNUM:INJURIES, property.damage, crop.damage)
+```
+
+## Final Processed Data
+
+The resulting `storms.df` data frame contains `r nrow(storms.df)` events and the following variables:
+
+- `REFNUM`: Unique reference number for the event
+- `year`: Year in which the event began
+- `EVTYPE`: Event type
+- `FATALITIES`: Number of fatalities due to the event
+- `INJURIES`: Number of injuries due to the event
+- `property.damage`: Property damage in US dollars due to the event
+- `crop.damage`: Crop damage in US dollars due to the event
+
+Table 1 shows the first 10 rows.
+
+```{r storms.df, echo=TRUE}
+kable(head(storms.df, n = 10), caption="Table 1. First 10 Rows of the Processed Dataset.")
+```
+
+
+# Results
+
+This analysis addresses the following questions: Across the United States, which types of events
+
+- are most harmful with respect to population health?
+- have the greatest economic consequences?
+
+## Population Health
+
+Harm to population health in this analysis is measured in terms of numbers of fatalities and numbers of injuries due to severe weather events.
+Beware that possible other types of harms  **cannot** be assessed based on this dataset.
+
+Figure 1 shows total fatalities and injuries by event type.
+
+```{r pop.health, echo=TRUE, fig.width=14, fig.height=8, fig.cap="Figure 1. Total fatalities and injuries by event type. A: Total numbers of fatalities/injuries for all event types, summed over all years between 1996 - 2011. Bars for the event types are sorted from greatest to smallest harm to population health (fatalities and injuries combined). B: Total numbers of fatalities/injuries by year for the 5 most harmful event types."}
+harm.by.type <- storms.df %>% 
+    group_by(EVTYPE) %>% 
+    summarise(Fatalities = sum(FATALITIES), Injuries = sum(INJURIES)) %>% 
+    arrange(desc(Fatalities), desc(Injuries))
+harm.by.type$EVTYPE <- reorder(harm.by.type$EVTYPE, rowSums(harm.by.type[-1]))
+
+harm.df <- harm.by.type %>% gather(Harm, Total, -EVTYPE)
+p1 <- ggplot(harm.df, aes(x = EVTYPE, y = Total, fill = Harm))
+p1 <- p1 + geom_bar(stat = "identity", position = 'stack') +
+    xlab("Event Type") +
+    ylab("Total number") + 
+    ggtitle("A") +
+    coord_flip() +
+    theme_bw()
+
+harm.by.type.year <- storms.df %>% 
+    group_by(EVTYPE, year) %>% 
+    summarise(Fatalities = sum(FATALITIES), Injuries = sum(INJURIES)) %>% 
+    arrange(year, desc(Fatalities), desc(Injuries))
+harm.by.type.year$EVTYPE <- reorder(harm.by.type.year$EVTYPE, rowSums(harm.by.type.year[3:4]))
+top5 <- rev(levels(harm.by.type.year$EVTYPE))[1:5]
+
+harm.df2 <- harm.by.type.year %>% 
+    gather(Harm, Total, -c(EVTYPE, year)) %>% 
+    filter(EVTYPE %in% top5)
+p2 <- ggplot(harm.df2, aes(x = year, y = Total))
+p2 <- p2 + geom_line(aes(colour = EVTYPE), size = 2, alpha = 0.6) +
+    xlab("Year") +
+    ylab("Total number") + 
+    ggtitle("B") +
+    facet_grid(Harm ~ ., scales = "free") +
+    labs(colour = "Event Type") +
+    theme_bw()
+
+grid.arrange(p1, p2, ncol = 2)
+```
+
+Note that "UNMATCHED" events (cf. section [Cleaning Up Event Types](#cleaning-up-event-types)) account only for a minor fraction of overall fatalities/injuries.
+
+Tornados, excessive heat, flood, thunderstorm wind, and lightning pose the greatest risk to population health. Tornados injure the most people by far, whereas excessive heat claims most fatalities.
+In general, injury numbers are one order of magnitude larger than fatality numbers.
+There is considerable variability across years, with differing patterns for fatalities and injuries.
+The largest fluctuations with respect to fatalities occur with excessive heat and tornados, whereas for injuries, flood and tornado numbers vary the strongest.
+
+
+## Economic Consequences
+
+Figure  2 shows total damage (in Billion US dollars) to property and crop by event type.
+
+```{r econ.conseq, echo=TRUE, fig.width=14, fig.height=8, fig.cap="Figure 2. Total damage (in Billion US dollars) to property and crop by event type. A: Total damage by event type, summed over all years between 1996 - 2011. Bars for the event types are sorted from highest to lowest damage (property and crop damage combined). B: Total damage by year for the 5 event types producing the most damage."}
+damage.by.type <- storms.df %>% 
+    group_by(EVTYPE) %>% 
+    summarise(Property = sum(property.damage), 
+              Crop = sum(crop.damage)) %>% 
+    arrange(desc(Property), desc(Crop))
+damage.by.type$EVTYPE <- reorder(damage.by.type$EVTYPE, rowSums(damage.by.type[-1]))
+
+damage.df <- damage.by.type %>% gather(Damage, Total, -EVTYPE)
+p3 <- ggplot(damage.df, aes(x = EVTYPE, y = Total/1e9, fill = Damage))
+p3 <- p3 + geom_bar(stat = "identity", position = 'stack') +
+    xlab("Event Type") +
+    scale_y_continuous("Total Damage in Billion US Dollars") + 
+    ggtitle("A") +
+    coord_flip() +
+    theme_bw()
+
+damage.by.type.year <- storms.df %>% 
+    group_by(EVTYPE, year) %>% 
+    summarise(Property = sum(property.damage), 
+              Crop = sum(crop.damage)) %>% 
+    arrange(year, desc(Property), desc(Crop))
+damage.by.type.year$EVTYPE <- reorder(damage.by.type.year$EVTYPE, rowSums(damage.by.type.year[3:4]))
+top5 <- rev(levels(damage.by.type.year$EVTYPE))[1:5]
+
+damage.df2 <- damage.by.type.year %>% 
+    gather(Damage, Total, -c(EVTYPE, year)) %>% 
+    filter(EVTYPE %in% top5)
+p4 <- ggplot(damage.df2, aes(x = year, y = Total/1e9))
+p4 <- p4 + geom_line(aes(colour = EVTYPE), size = 2, alpha = 0.6) +
+    xlab("Year") +
+    ylab("Total Damage in Billion US Dollars") + 
+    ggtitle("B") +
+    facet_grid(Damage ~ ., scales = "free") +
+    labs(colour = "Event Type") +
+    theme_bw()
+
+grid.arrange(p3, p4, ncol = 2)
+```
+
+Note that "UNMATCHED" events (cf. section [Cleaning Up Event Types](#cleaning-up-event-types)) only account for a very minor fraction of the damage.
+
+Economic consequences are mainly due to property damage, with flood, hurricane, storm surge, tornado, and hail events contributing the most over the years.
+A notable exception are drought events which damage crops the most.
+Variability across the years is mostly produced by flood and hurricane events.
+
