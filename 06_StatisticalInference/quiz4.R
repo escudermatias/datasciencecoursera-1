@@ -25,7 +25,7 @@ sd.treat <- 1.5
 sd.plac <- 1.8
 
 n <- 9
-sp <- sqrt(((n-1)*sd.treat^2 + (n-1)*sd.plac^2) / (n + n -2) )
+sp <- sqrt(((n-1)*sd.treat^2 + (n-1)*sd.plac^2) / (n + n - 2) )
 
 tstat <- (diff.treat - diff.plac) / (sp * sqrt(1/n + 1/n))
 pt(tstat, n + n - 2, lower.tail = TRUE)

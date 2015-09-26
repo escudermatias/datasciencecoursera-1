@@ -12,7 +12,9 @@ output:
 subtitle: 'Tooth Growth: A Basic Exploratory Data Analysis'
 ---
 
-**Note that this document is fully reproducible, so that I am not giving a 3 pages + 3 pages supplementary report but rather a 6 page report with code and text together.**
+**Note that this document is fully reproducible, so that I am not giving a 3 pages + 3 pages supplementary report but rather a 5 page report with code and text together.**
+
+# Preliminaries
 
 ```{r global_options, include=FALSE}
 knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE)
@@ -37,15 +39,18 @@ We convert the dose variable to a factor for easier comparisons and grouping.
 ToothGrowth$dose <- as.factor(ToothGrowth$dose)
 n <- nrow(ToothGrowth)
 set.caption(paste0("First rows of the dataset which consists of ", n, 
-                   " observations in total"))
+                   " observations in total."))
 pander(head(ToothGrowth))
 ```
 
 Table 1 shows the first rows of the dataset that consists of `r n` observations in total.
-To get an impression on the distribution of tooth lengths, we calculate mean and standard deviation for the dataset as a whole and for the data grouped by delivery methods and/or doses:
+
+
+# Exploratory Data Analysis
+
+To get an impression of the distribution of tooth lengths, we calculate mean and standard deviation for the dataset as a whole and for the data grouped by delivery method or dose:
 
 ```{r summaries}
-set.caption("Summary of tooth lengths: Mean and standard deviation of tooth lengths for the whole dataset (row 1), for the two delivery methods (rows 2--3), for the three dose levels (rows 4--6), and for each combination of delivery method and dose (rows 7--12).")
 all.data <- ToothGrowth %>% 
     summarise(n = n(), mean = mean(len), sd = sd(len)) %>% 
     mutate(supp = NA, dose = NA) %>% 
@@ -60,37 +65,39 @@ dose.data <- ToothGrowth %>%
     summarise(n = n(), mean = mean(len), sd = sd(len)) %>% 
     mutate(supp = NA) %>% 
     select(supp, dose, n, mean, sd)
-comb.data <- ToothGrowth %>% 
-    group_by(supp, dose) %>% 
-    summarise(n = n(), mean = mean(len), sd = sd(len))
-df <- rbind(all.data, supp.data, dose.data, comb.data)
+df <- rbind(all.data, supp.data, dose.data)
+set.caption("Summary of tooth lengths: Mean and standard deviation of tooth 
+            lengths for the whole dataset (row 1), for the two delivery methods 
+            (rows 2--3), and for the three dose levels (rows 4--6).")
 pander(df, missing = "")
 ```
 
-Table 2 shows that from the `r n` total observations, each of the two delivery methods was applied 30 times, each of the three Vitamin C doses 20 times, and each combination of dose and delivery method 10 times.
+Table 2 also shows that from the `r n` total observations, each of the two delivery methods was applied 30 times, and each of the three Vitamin C doses 20 times.
 
+The distributions of tooth length are best visualized by boxplots:
 
-```{r boxplots, fig.cap="Figure 1: Boxplot of tooth lengths for the two delivery methods and the three dose levels."}
+```{r boxplot_supp, fig.cap="Boxplot of tooth lengths for the two delivery methods."}
 ggplot(ToothGrowth, aes(x = supp, y = len)) +
     geom_boxplot() +
     xlab("Delivery method") + ylab("Tooth length") +
     theme_bw()
+```
+
+```{r boxplot_dose, fig.cap="Boxplot of tooth lengths for the three dose levels."}
 ggplot(ToothGrowth, aes(x = dose, y = len, col = dose)) +
     geom_boxplot() +
     xlab("Dose") + ylab("Tooth length") +
     theme_bw()
-ggplot(ToothGrowth, aes(x = supp, y = len, col = dose)) +
-    geom_boxplot() +
-    xlab("Delivery method") + ylab("Tooth length") +
-    theme_bw()
 ```
 
-Table 2 and figure 1 both show that the mean and standard deviation of tooth lengths vary considerably with dose level and delivery method.
+Table 2 and figures 1 and 2 all show that the mean and standard deviation of tooth lengths vary considerably with dose level and delivery method.
 
-# Does dose level influences tooth length?
+# Inference: Do dose level and delivery method influences tooth length?
 
-To test whether the observed differences in tooth length for the three dose levels are statistically significant, we will assume that the measurements of tooth length are independent and identically Gaussian distributed *(iid Gaussian)* so that we can build *t* distribution confidence intervals.
+To test whether the observed differences in tooth length for the three dose levels and the two delivery methods are statistically significant, we will assume that the measurements of tooth length are independent and identically Gaussian distributed *(iid Gaussian)* so that we can build *t* distribution confidence intervals.
 To err on the side of caution, we assume unequal variances for our comparisons.
+
+First, we define functions for the (squared) standard error of the mean, the degrees of freedom, and the confidence intervals:
 
 ```{r unequal_var}
 st.err <- function(sd, n) {
@@ -111,6 +118,8 @@ conf.int <- function(meanx, sdx, nx, meany, sdy, ny, alpha = 0.05) {
 }
 ```
 
+Now we calculate the 95% confidence intervals for the differences in mean tooth length for the three dose levels:
+
 ```{r dose_ci}
 dose.ci <- data.frame()
 for (i in 1:2) {
@@ -124,10 +133,15 @@ for (i in 1:2) {
     }
 }
 dose.ci$difference <- c("1 - 0.5", "2 - 0.5", "2 - 1")
-set.caption(paste0("95% confidence intervals for the differences between the three dose levels."))
+set.caption(paste0("95% confidence intervals for the differences between 
+                   the three dose levels."))
 pander(dose.ci %>% select(difference, ci.low, ci.upp))
 ```
 
+From table 3 we can infer that the observed differences in mean tooth length for the three dose levels are statistically significant as none of the 95% confidence intervals includes a difference of zero.
+Therefore, we reject the null hypothesis (of no influence of dose level on tooth length) and **conclude that higher doses yield increased tooth length**.
+
+An analogous calculation for the delivery method differences yields table 4.
 
 ```{r supp_ci}
 ci <- conf.int(as.numeric(supp.data[1, "mean"]), as.numeric(supp.data[1, "sd"]), 
@@ -136,6 +150,9 @@ ci <- conf.int(as.numeric(supp.data[1, "mean"]), as.numeric(supp.data[1, "sd"]),
                as.numeric(supp.data[2, "n"]),
                alpha = 0.05)
 supp.ci <- data.frame(difference = "VC - OJ", ci.low = ci[1], ci.upp = ci[2])
-set.caption(paste0("95% confidence intervals for the difference between the two delivery methods."))
+set.caption(paste0("95% confidence intervals for the difference between the 
+                   two delivery methods."))
 pander(supp.ci)
 ```
+
+Clearly, the 95% confidence interval for the difference in mean tooth length for the two delivery methods includes zero such that we can not reject the null hypothesis of **no influence of delivery method on tooth length**.
